@@ -1,0 +1,1522 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>QR Studio · Workshop Specification</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..900,0..100,0..1;1,9..144,300..900,0..100,0..1&family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --paper: #efe8d8;
+    --paper-dk: #e4dbc3;
+    --paper-lt: #f5f0e2;
+    --ink: #141a26;
+    --ink-2: #3a4558;
+    --ink-3: #6a7184;
+    --rule: #b8ae92;
+    --rule-soft: #d4caaf;
+    --hot: #b0311d;
+    --hot-2: #8a2418;
+    --mark: #2a3f66;
+    --ok: #345b3a;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
+    font-weight: 400;
+    font-size: 13px;
+    line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+
+  /* Paper grid and grain overlays (never block input) */
+  body::before {
+    content: ''; position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    background-image:
+      linear-gradient(rgba(20,26,38,0.045) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(20,26,38,0.045) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+  body::after {
+    content: ''; position: fixed; inset: 0; z-index: 1; pointer-events: none;
+    opacity: 0.35; mix-blend-mode: multiply;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.92' numOctaves='2' seed='7'/><feColorMatrix values='0 0 0 0 0.08 0 0 0 0 0.1 0 0 0 0 0.15 0 0 0 0.32 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  }
+
+  .sheet {
+    position: relative; z-index: 2;
+    min-height: 100vh;
+    display: grid; grid-template-rows: auto 1fr auto;
+  }
+
+  /* ---------- MASTHEAD ---------- */
+  .masthead {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: end;
+    gap: 32px;
+    padding: 28px 40px 20px;
+    border-bottom: 3px double var(--ink);
+  }
+  .wordmark {
+    display: flex; align-items: baseline; gap: 2px;
+    line-height: 0.78;
+  }
+  .wordmark .qr {
+    font-family: 'Fraunces', serif;
+    font-weight: 900;
+    font-size: 76px;
+    font-variation-settings: 'opsz' 144, 'SOFT' 20, 'WONK' 1;
+    letter-spacing: -0.045em;
+    color: var(--ink);
+  }
+  .wordmark .studio {
+    font-family: 'Fraunces', serif;
+    font-weight: 300;
+    font-style: italic;
+    font-size: 44px;
+    font-variation-settings: 'opsz' 144, 'SOFT' 60, 'WONK' 1;
+    letter-spacing: -0.01em;
+    margin-left: 10px;
+    color: var(--ink);
+  }
+  .wordmark .sup {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px;
+    font-weight: 500;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--hot);
+    margin-left: 14px;
+    align-self: start;
+    margin-top: 6px;
+    white-space: nowrap;
+  }
+  .tagline {
+    justify-self: start;
+    padding-bottom: 8px;
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-weight: 300;
+    font-size: 15px;
+    color: var(--ink-2);
+    max-width: 340px;
+    font-variation-settings: 'opsz' 30;
+    padding-left: 40px;
+    border-left: 1px solid var(--rule);
+  }
+  .titleblock {
+    display: grid;
+    grid-template-columns: repeat(4, auto);
+    gap: 0;
+    border: 1px solid var(--ink);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+  .titleblock div {
+    padding: 6px 14px;
+    border-right: 1px solid var(--ink);
+    display: flex; flex-direction: column; gap: 2px;
+  }
+  .titleblock div:last-child { border-right: none; }
+  .titleblock .k { color: var(--ink-3); font-size: 8px; }
+  .titleblock .v { color: var(--ink); font-weight: 500; font-size: 10px; }
+
+  /* ---------- LAYOUT ---------- */
+  .layout {
+    display: grid;
+    grid-template-columns: 420px 1fr;
+    min-height: 0;
+  }
+  .specsheet {
+    padding: 32px 40px 48px;
+    border-right: 1px solid var(--ink);
+    max-height: calc(100vh - 156px);
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--rule) transparent;
+  }
+  .specsheet::-webkit-scrollbar { width: 6px; }
+  .specsheet::-webkit-scrollbar-thumb { background: var(--rule); }
+
+  .plates {
+    padding: 32px 40px 40px;
+    display: grid;
+    grid-template-rows: auto minmax(420px, 1fr) minmax(300px, auto);
+    gap: 24px;
+    min-height: 0;
+  }
+
+  /* ---------- SECTIONS ---------- */
+  section { margin-bottom: 26px; }
+  section:last-of-type { margin-bottom: 0; }
+  h2 {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.22em;
+    color: var(--ink-2);
+    margin: 0 0 16px;
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--rule);
+  }
+  h2 .num {
+    font-family: 'Fraunces', serif;
+    font-weight: 400;
+    font-style: italic;
+    font-size: 26px;
+    color: var(--hot);
+    font-variation-settings: 'opsz' 144, 'SOFT' 50, 'WONK' 1;
+    letter-spacing: -0.02em;
+    line-height: 0.8;
+  }
+  h2 .name { flex: 1; }
+
+  /* ---------- FIELDS ---------- */
+  .field { margin-bottom: 14px; position: relative; }
+  .field > label, .field-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: var(--ink-3);
+    display: block;
+    margin-bottom: 5px;
+  }
+
+  /* Text input — underlined drafting entry */
+  input[type=text] {
+    width: 100%;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--ink);
+    padding: 4px 0 6px;
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 400;
+    color: var(--ink);
+    border-radius: 0;
+  }
+  input[type=text]:focus {
+    outline: none;
+    border-bottom-color: var(--hot);
+  }
+
+  /* Select — flat with draftsman arrow */
+  select {
+    width: 100%;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--ink);
+    padding: 5px 20px 7px 0;
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 14px;
+    color: var(--ink);
+    border-radius: 0;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image:
+      linear-gradient(45deg, transparent 50%, var(--ink) 50%, var(--ink) calc(50% + 1.5px), transparent calc(50% + 1.5px)),
+      linear-gradient(135deg, transparent 50%, var(--ink) 50%, var(--ink) calc(50% + 1.5px), transparent calc(50% + 1.5px));
+    background-position: calc(100% - 8px) 14px, calc(100% - 3px) 14px;
+    background-size: 6px 6px;
+    background-repeat: no-repeat;
+  }
+  select:focus { outline: none; border-bottom-color: var(--hot); }
+  select:disabled { opacity: 0.35; }
+
+  /* Measured field — label, big value, ruler */
+  .field.measured {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    column-gap: 18px;
+    align-items: baseline;
+  }
+  .field.measured > label { grid-column: 1; grid-row: 1; margin-bottom: 0; align-self: end; }
+  .field.measured .readout {
+    grid-column: 2; grid-row: 1 / 3;
+    display: flex;
+    align-items: baseline;
+    justify-content: flex-end;
+    gap: 2px;
+  }
+  .field.measured .readout input[type=number] {
+    font-family: 'Fraunces', serif;
+    font-weight: 400;
+    font-size: 34px;
+    line-height: 0.9;
+    font-variation-settings: 'opsz' 144, 'SOFT' 30, 'WONK' 1;
+    color: var(--hot);
+    text-align: right;
+    background: transparent;
+    border: none;
+    border-bottom: 1px dashed transparent;
+    padding: 0 0 3px;
+    width: 3.6ch;
+    font-feature-settings: 'tnum' 1, 'lnum' 1;
+    letter-spacing: -0.01em;
+    -moz-appearance: textfield;
+    cursor: text;
+    transition: border-color 0.12s, background 0.12s;
+  }
+  .field.measured .readout input[type=number]::-webkit-outer-spin-button,
+  .field.measured .readout input[type=number]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  .field.measured .readout input[type=number]:hover {
+    border-bottom-color: var(--rule);
+  }
+  .field.measured .readout input[type=number]:focus {
+    outline: none;
+    border-bottom-color: var(--hot);
+    background: rgba(176,49,29,0.05);
+  }
+  .field.measured .readout input[type=number]:disabled {
+    opacity: 0.35;
+  }
+  .field.measured .readout .u {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px;
+    font-weight: 500;
+    color: var(--ink-3);
+    letter-spacing: 0.15em;
+    margin-left: 3px;
+    padding-bottom: 8px;
+  }
+  .field.measured input[type=range] {
+    grid-column: 1; grid-row: 2;
+    margin: 8px 0 2px;
+  }
+  .field.measured .footnote {
+    grid-column: 1 / -1; grid-row: 3;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px;
+    color: var(--ink-3);
+    letter-spacing: 0.05em;
+    margin-top: 4px;
+  }
+
+  /* Range — hairline track with tick marks, solid square thumb */
+  input[type=range] {
+    -webkit-appearance: none;
+    appearance: none;
+    background: transparent;
+    width: 100%;
+    height: 14px;
+    cursor: pointer;
+  }
+  input[type=range]::-webkit-slider-runnable-track {
+    height: 14px;
+    background:
+      linear-gradient(to bottom, transparent 6px, var(--ink) 6px, var(--ink) 7px, transparent 7px),
+      repeating-linear-gradient(to right, var(--ink) 0, var(--ink) 1px, transparent 1px, transparent 10%);
+    background-size: 100% 100%, 100% 14px;
+    background-position: 0 0, 0 0;
+  }
+  input[type=range]::-moz-range-track {
+    height: 14px;
+    background:
+      linear-gradient(to bottom, transparent 6px, var(--ink) 6px, var(--ink) 7px, transparent 7px),
+      repeating-linear-gradient(to right, var(--ink) 0, var(--ink) 1px, transparent 1px, transparent 10%);
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    background: var(--ink);
+    border: none;
+    border-radius: 0;
+    margin-top: 0;
+    transform: rotate(45deg);
+    cursor: pointer;
+    transition: background 0.12s;
+  }
+  input[type=range]::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    background: var(--ink);
+    border: none;
+    border-radius: 0;
+    cursor: pointer;
+  }
+  input[type=range]:hover::-webkit-slider-thumb,
+  input[type=range]:active::-webkit-slider-thumb { background: var(--hot); }
+  input[type=range]:hover::-moz-range-thumb { background: var(--hot); }
+  input[type=range]:disabled { opacity: 0.35; }
+
+  /* Color swatches — paint chips */
+  .swatches {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  .chip {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .chip-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: var(--ink-3);
+  }
+  .chip-frame {
+    position: relative;
+    height: 58px;
+    border: 1px solid var(--ink);
+    overflow: hidden;
+    cursor: pointer;
+  }
+  .chip-frame input[type=color] {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    border: none; padding: 0;
+    background: transparent;
+    cursor: pointer;
+    opacity: 0;
+  }
+  .chip-fill {
+    position: absolute; inset: 0;
+    transition: background 0.15s;
+  }
+  .chip-hex {
+    position: absolute;
+    left: 8px; bottom: 6px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--paper);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    mix-blend-mode: difference;
+    pointer-events: none;
+  }
+
+  /* Plate readout block — title-block style */
+  .readout-block {
+    margin-top: 8px;
+    padding: 10px 12px;
+    border: 1px solid var(--rule);
+    background: var(--paper-lt);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    line-height: 1.5;
+    color: var(--ink-2);
+    letter-spacing: 0.04em;
+  }
+  .readout-block .k {
+    font-size: 8px; text-transform: uppercase; letter-spacing: 0.16em; color: var(--ink-3);
+    display: block; margin-bottom: 1px;
+  }
+
+  /* Export buttons — filing cabinet labels */
+  .exports { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .exports button {
+    background: transparent;
+    border: 1px solid var(--ink);
+    color: var(--ink);
+    padding: 12px 10px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    cursor: pointer;
+    transition: background 0.12s, color 0.12s;
+  }
+  .exports button:hover { background: var(--ink); color: var(--paper); }
+  .exports button.wide { grid-column: 1 / -1; }
+  .exports button.primary {
+    grid-column: 1 / -1;
+    background: var(--hot);
+    color: var(--paper);
+    border-color: var(--hot);
+    padding: 14px;
+    font-size: 11px;
+    letter-spacing: 0.22em;
+    font-weight: 600;
+  }
+  .exports button.primary:hover {
+    background: var(--ink);
+    border-color: var(--ink);
+  }
+
+  /* ---------- STAMP (verification) ---------- */
+  .stamp-area { align-self: start; min-height: 60px; }
+  .stamp {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 20px 14px;
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-weight: 500;
+    font-size: 17px;
+    font-variation-settings: 'opsz' 144, 'SOFT' 60, 'WONK' 1;
+    border: 2.5px solid var(--ink);
+    color: var(--ink);
+    background: var(--paper-lt);
+    transform: rotate(-1.6deg);
+    letter-spacing: 0.01em;
+    max-width: 100%;
+    position: relative;
+    box-shadow:
+      0 0 0 1px var(--paper-lt),
+      0 0 0 4px var(--ink);
+    transition: all 0.18s;
+  }
+  .stamp::before {
+    content: '';
+    display: inline-block;
+    width: 14px; height: 14px;
+    border: 1.5px solid currentColor;
+    border-radius: 50%;
+    background: currentColor;
+    box-shadow: inset 0 0 0 2px var(--paper-lt);
+    flex-shrink: 0;
+  }
+  .stamp.ok {
+    color: var(--ok);
+    border-color: var(--ok);
+    box-shadow: 0 0 0 1px var(--paper-lt), 0 0 0 4px var(--ok);
+    transform: rotate(-1.6deg);
+  }
+  .stamp.bad {
+    color: var(--hot-2);
+    border-color: var(--hot-2);
+    box-shadow: 0 0 0 1px var(--paper-lt), 0 0 0 4px var(--hot-2);
+    transform: rotate(-2.2deg);
+  }
+  /* hide the old pill inner dot if present */
+  .stamp .dot { display: none; }
+
+  /* ---------- PLAN & ISO VIEWS ---------- */
+  figure.plate-view {
+    margin: 0;
+    position: relative;
+    border: 1px solid var(--ink);
+    background: var(--paper-lt);
+    overflow: hidden;
+    min-height: 0;
+  }
+  figure.plate-view figcaption {
+    position: absolute;
+    top: 0; left: 24px;
+    transform: translateY(-50%);
+    background: var(--paper);
+    padding: 2px 12px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: var(--ink);
+    z-index: 3;
+  }
+  figure.plate-view .callout {
+    position: absolute;
+    right: 16px; top: 0;
+    transform: translateY(-50%);
+    background: var(--paper);
+    padding: 2px 10px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--hot);
+    z-index: 3;
+  }
+
+  /* Registration crosshairs in corners of plan view */
+  .reg { position: absolute; width: 22px; height: 22px; z-index: 2; pointer-events: none; }
+  .reg::before, .reg::after { content: ''; position: absolute; background: var(--ink); }
+  .reg::before { width: 100%; height: 1px; top: 50%; transform: translateY(-50%); }
+  .reg::after { width: 1px; height: 100%; left: 50%; transform: translateX(-50%); }
+  .reg.tl { top: 14px; left: 14px; }
+  .reg.tr { top: 14px; right: 14px; }
+  .reg.bl { bottom: 14px; left: 14px; }
+  .reg.br { bottom: 14px; right: 14px; }
+
+  /* Plan view inner stage */
+  #qrStage {
+    position: absolute;
+    inset: 44px 28px 28px;
+    display: flex; align-items: center; justify-content: center;
+    background-image:
+      linear-gradient(rgba(20,26,38,0.06) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(20,26,38,0.06) 1px, transparent 1px);
+    background-size: 12px 12px;
+  }
+  #qrStageInner {
+    position: relative;
+    display: flex; align-items: center; justify-content: center;
+    transform-origin: center center;
+  }
+  #plate {
+    position: absolute;
+    box-shadow:
+      0 12px 28px rgba(20,26,38,0.22),
+      0 2px 6px rgba(20,26,38,0.12);
+  }
+  #qrMount {
+    position: relative;
+    z-index: 1;
+    display: flex;
+  }
+  #qrMount > div { display: flex; }
+
+  .scale-note {
+    position: absolute;
+    bottom: 10px; left: 20px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    z-index: 2;
+    background: var(--paper-lt);
+    padding: 0 6px;
+  }
+
+  /* Iso view */
+  figure.iso-view { margin: 0; position: relative; border: 1px solid var(--ink); background: var(--paper-lt); overflow: hidden; min-height: 280px; }
+  figure.iso-view figcaption {
+    position: absolute;
+    top: 0; left: 24px;
+    transform: translateY(-50%);
+    background: var(--paper);
+    padding: 2px 12px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: var(--ink);
+    z-index: 3;
+  }
+  #threeBox {
+    position: absolute;
+    inset: 24px 18px 18px;
+  }
+  #threeBox canvas { display: block; width: 100% !important; height: 100% !important; }
+
+  /* ---------- FOOTER ---------- */
+  .colophon {
+    padding: 14px 40px 18px;
+    border-top: 1px solid var(--rule);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+  .colophon .italic {
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-size: 12px;
+    text-transform: none;
+    letter-spacing: 0;
+    color: var(--ink-2);
+    font-variation-settings: 'opsz' 30;
+  }
+
+  @media (max-width: 960px) {
+    .layout { grid-template-columns: 1fr; }
+    .specsheet { max-height: none; border-right: none; border-bottom: 1px solid var(--ink); }
+    .masthead { grid-template-columns: 1fr; gap: 16px; }
+    .tagline { padding-left: 0; border-left: none; }
+  }
+</style>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://esm.sh/three@0.160.0",
+    "three/addons/": "https://esm.sh/three@0.160.0/examples/jsm/",
+    "qr-code-styling": "https://esm.sh/qr-code-styling@1.6.0-rc.1",
+    "jsqr": "https://esm.sh/jsqr@1.4.0",
+    "jszip": "https://esm.sh/jszip@3.10.1"
+  }
+}
+</script>
+</head>
+<body>
+
+<div class="sheet">
+
+  <!-- ============ MASTHEAD ============ -->
+  <header class="masthead">
+    <div class="wordmark">
+      <span class="qr">QR</span><span class="studio">Studio</span>
+      <span class="sup">Workshop<br>Spec · N° 001</span>
+    </div>
+    <div class="tagline">
+      A drafting table for printable QR codes — specify once, verify continuously, export for the slicer.
+    </div>
+    <div class="titleblock">
+      <div><span class="k">Drawing</span><span class="v">QR-001</span></div>
+      <div><span class="k">Revision</span><span class="v">A</span></div>
+      <div><span class="k">Scale</span><span class="v">1 : 1</span></div>
+      <div><span class="k">Date</span><span class="v" id="today">——</span></div>
+    </div>
+  </header>
+
+  <!-- ============ LAYOUT ============ -->
+  <div class="layout">
+
+    <!-- ============ SPECSHEET (left sidebar) ============ -->
+    <aside class="specsheet">
+
+      <section>
+        <h2><span class="num">01</span><span class="name">Content</span></h2>
+        <div class="field">
+          <label for="text">Encode</label>
+          <input id="text" type="text" value="https://example.com" />
+        </div>
+        <div class="field">
+          <label for="ecLevel">Error Correction</label>
+          <select id="ecLevel">
+            <option value="L">L — 7% recovery</option>
+            <option value="M">M — 15% recovery</option>
+            <option value="Q" selected>Q — 25% recovery</option>
+            <option value="H">H — 30% recovery</option>
+          </select>
+        </div>
+      </section>
+
+      <section>
+        <h2><span class="num">02</span><span class="name">Form</span></h2>
+        <div class="field">
+          <label for="dotsType">Module Shape</label>
+          <select id="dotsType">
+            <option value="square">Square</option>
+            <option value="dots">Dots</option>
+            <option value="rounded" selected>Rounded</option>
+            <option value="classy">Classy</option>
+            <option value="classy-rounded">Classy Rounded</option>
+            <option value="extra-rounded">Extra Rounded</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="cornersSquareType">Finder Frame</label>
+          <select id="cornersSquareType">
+            <option value="square">Square</option>
+            <option value="dot">Dot</option>
+            <option value="extra-rounded" selected>Extra Rounded</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="cornersDotType">Finder Pupil</label>
+          <select id="cornersDotType">
+            <option value="square">Square</option>
+            <option value="dot" selected>Dot</option>
+          </select>
+        </div>
+      </section>
+
+      <section>
+        <h2><span class="num">03</span><span class="name">Dimensions</span></h2>
+        <div class="field measured">
+          <label for="qrSize">QR Size</label>
+          <div class="readout">
+            <input type="number" id="qrSizeNum" min="20" max="150" step="1" value="50" />
+            <span class="u">mm</span>
+          </div>
+          <input id="qrSize" type="range" min="20" max="150" step="1" value="50" />
+        </div>
+        <div class="field measured">
+          <label for="depth">Module Height</label>
+          <div class="readout">
+            <input type="number" id="depthNum" min="0.2" max="5" step="0.1" value="1.2" />
+            <span class="u">mm</span>
+          </div>
+          <input id="depth" type="range" min="0.2" max="5" step="0.1" value="1.2" />
+          <div class="footnote">— pause at this Z for a filament swap on single-extruder printers.</div>
+        </div>
+      </section>
+
+      <section>
+        <h2><span class="num">04</span><span class="name">Plate</span></h2>
+        <div class="field">
+          <label for="plateShape">Shape</label>
+          <select id="plateShape">
+            <option value="square" selected>Square</option>
+            <option value="circle">Circle</option>
+            <option value="none">None — QR Only</option>
+          </select>
+        </div>
+        <div class="field measured">
+          <label for="plateMargin">Margin</label>
+          <div class="readout">
+            <input type="number" id="plateMarginNum" min="0" max="40" step="0.5" value="5" />
+            <span class="u">mm</span>
+          </div>
+          <input id="plateMargin" type="range" min="0" max="40" step="0.5" value="5" />
+        </div>
+        <div class="field measured">
+          <label for="plateRadius">Corner Radius<span id="plateRadiusClamp" style="color:var(--ink-3);font-family:'IBM Plex Mono',monospace;font-size:9px;text-transform:none;letter-spacing:0.05em;margin-left:6px"></span></label>
+          <div class="readout">
+            <input type="number" id="plateRadiusNum" min="0" max="40" step="0.5" value="4" />
+            <span class="u">mm</span>
+          </div>
+          <input id="plateRadius" type="range" min="0" max="40" step="0.5" value="4" />
+        </div>
+        <div class="field measured">
+          <label for="backingDepth">Plate Thickness</label>
+          <div class="readout">
+            <input type="number" id="backingDepthNum" min="0.4" max="5" step="0.1" value="2.0" />
+            <span class="u">mm</span>
+          </div>
+          <input id="backingDepth" type="range" min="0.4" max="5" step="0.1" value="2.0" />
+        </div>
+        <div class="readout-block" id="plateSizeReadout">
+          <span class="k">Computed Plate</span>—
+        </div>
+      </section>
+
+      <section>
+        <h2><span class="num">05</span><span class="name">Finish</span></h2>
+        <div class="swatches">
+          <div class="chip">
+            <span class="chip-label">Plate · Filament 1</span>
+            <div class="chip-frame">
+              <div class="chip-fill" id="plateFill"></div>
+              <span class="chip-hex" id="plateHex">#F1F5F9</span>
+              <input id="plateColor" type="color" value="#f1f5f9" />
+            </div>
+          </div>
+          <div class="chip">
+            <span class="chip-label">Modules · Filament 2</span>
+            <div class="chip-frame">
+              <div class="chip-fill" id="moduleFill"></div>
+              <span class="chip-hex" id="moduleHex">#0F172A</span>
+              <input id="moduleColor" type="color" value="#0f172a" />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2><span class="num">06</span><span class="name">Output</span></h2>
+        <div class="exports">
+          <button id="dlSvg">Svg</button>
+          <button id="dlPng">Png</button>
+          <button id="dl3mf" class="primary">3mf · Dual Color</button>
+          <button id="dlStlQr">Stl · Modules</button>
+          <button id="dlStlPlate">Stl · Plate</button>
+          <button id="dlStl" class="wide">Stl · Combined (1 Color)</button>
+        </div>
+        <div class="hint" style="margin-top:10px">3MF carries both bodies <em>and</em> their colors in a single file — open it in Bambu Studio, PrusaSlicer, or OrcaSlicer and the filaments are pre-assigned. STL is single-material by design; use the split STLs if your slicer doesn't accept 3MF.</div>
+      </section>
+
+    </aside>
+
+    <!-- ============ PLATES (preview) ============ -->
+    <main class="plates">
+
+      <div class="stamp-area">
+        <div id="status" class="stamp"><span id="statusText">Generating…</span></div>
+      </div>
+
+      <figure class="plate-view">
+        <figcaption>Plan View · 1:1</figcaption>
+        <span class="callout" id="planCallout">——</span>
+        <div class="reg tl"></div><div class="reg tr"></div>
+        <div class="reg bl"></div><div class="reg br"></div>
+        <div id="qrStage">
+          <div id="qrStageInner">
+            <div id="plate"></div>
+            <div id="qrMount"></div>
+          </div>
+        </div>
+        <div class="scale-note">Grid · 12 Px</div>
+      </figure>
+
+      <figure class="iso-view">
+        <figcaption>Iso View</figcaption>
+        <div id="threeBox"></div>
+      </figure>
+
+    </main>
+  </div>
+
+  <!-- ============ COLOPHON ============ -->
+  <footer class="colophon">
+    <span>Self-Verifying · Two-Body Export · Print-Ready</span>
+    <span class="italic">Measure twice, cut once.</span>
+    <span>Qr-Studio · 2026</span>
+  </footer>
+
+</div>
+
+<script type="module">
+import QRCodeStyling from 'qr-code-styling';
+import jsQR from 'jsqr';
+import * as THREE from 'three';
+import { SVGLoader } from 'three/addons/loaders/SVGLoader.js';
+import { STLExporter } from 'three/addons/exporters/STLExporter.js';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import JSZip from 'jszip';
+
+const $ = (id) => document.getElementById(id);
+const qrStage = $('qrStage');
+const qrStageInner = $('qrStageInner');
+const qrMount = $('qrMount');
+const plateEl = $('plate');
+const statusEl = $('status');
+const statusText = $('statusText');
+const planCallout = $('planCallout');
+
+const inputs = {
+  text: $('text'),
+  ecLevel: $('ecLevel'),
+  dotsType: $('dotsType'),
+  cornersSquareType: $('cornersSquareType'),
+  cornersDotType: $('cornersDotType'),
+  qrSize: $('qrSize'),
+  depth: $('depth'),
+  plateShape: $('plateShape'),
+  plateMargin: $('plateMargin'),
+  plateRadius: $('plateRadius'),
+  backingDepth: $('backingDepth'),
+  plateColor: $('plateColor'),
+  moduleColor: $('moduleColor'),
+};
+
+const labels = {
+  plateRadiusClamp: $('plateRadiusClamp'),
+  plateSizeReadout: $('plateSizeReadout'),
+  plateFill: $('plateFill'),
+  moduleFill: $('moduleFill'),
+  plateHex: $('plateHex'),
+  moduleHex: $('moduleHex'),
+};
+
+// Typable number inputs paired with each measured slider.
+const numInputs = {
+  qrSize: $('qrSizeNum'),
+  depth: $('depthNum'),
+  plateMargin: $('plateMarginNum'),
+  plateRadius: $('plateRadiusNum'),
+  backingDepth: $('backingDepthNum'),
+};
+const numPrecision = { qrSize: 0, depth: 1, plateMargin: 1, plateRadius: 1, backingDepth: 1 };
+
+// ---------- persistence ----------
+const STORAGE_KEY = 'qr-studio:v1';
+
+function loadState() {
+  let raw;
+  try { raw = localStorage.getItem(STORAGE_KEY); } catch (e) { return; }
+  if (!raw) return;
+  let saved;
+  try { saved = JSON.parse(raw); } catch (e) { return; }
+  if (!saved || typeof saved !== 'object') return;
+  for (const [key, el] of Object.entries(inputs)) {
+    if (Object.prototype.hasOwnProperty.call(saved, key)) {
+      el.value = saved[key];
+    }
+  }
+}
+
+function saveState() {
+  const snapshot = {};
+  for (const [key, el] of Object.entries(inputs)) snapshot[key] = el.value;
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot)); } catch (e) {}
+}
+
+// Today's date in the title block
+(function setToday() {
+  const d = new Date();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  $('today').textContent = `${d.getFullYear()}·${mm}·${dd}`;
+})();
+
+// ---------- geometry rules (single source of truth) ----------
+const CORNER_FACTOR = 1 / (1 - 1 / Math.SQRT2);
+
+function computePlateGeometry() {
+  const qrMm = Number(inputs.qrSize.value);
+  const margin = Math.max(0, Number(inputs.plateMargin.value));
+  const shape = inputs.plateShape.value;
+  const requestedR = Math.max(0, Number(inputs.plateRadius.value));
+
+  let plateMm = 0;
+  if (shape === 'square') plateMm = qrMm + 2 * margin;
+  else if (shape === 'circle') plateMm = qrMm * Math.SQRT2 + 2 * margin;
+
+  const rMax = Math.min(margin * CORNER_FACTOR, plateMm / 2);
+  const effectiveR = Math.min(requestedR, rMax);
+
+  if (shape === 'square') console.assert(plateMm >= qrMm, 'square plate smaller than QR');
+  if (shape === 'circle') console.assert(plateMm / 2 >= (qrMm * Math.SQRT2) / 2, 'circle plate does not contain QR');
+
+  return { qrMm, margin, shape, plateMm, requestedR, effectiveR, rMax };
+}
+
+// ---------- QR rendering ----------
+const QR_RASTER_PX = 360;
+let qr = null;
+
+function buildOptions() {
+  return {
+    width: QR_RASTER_PX,
+    height: QR_RASTER_PX,
+    type: 'svg',
+    data: inputs.text.value || ' ',
+    margin: 0,
+    qrOptions: { errorCorrectionLevel: inputs.ecLevel.value },
+    dotsOptions: { type: inputs.dotsType.value, color: inputs.moduleColor.value },
+    cornersSquareOptions: { type: inputs.cornersSquareType.value, color: inputs.moduleColor.value },
+    cornersDotOptions: { type: inputs.cornersDotType.value, color: inputs.moduleColor.value },
+    backgroundOptions: { color: inputs.plateColor.value },
+  };
+}
+
+function clearNode(node) { while (node.firstChild) node.removeChild(node.firstChild); }
+
+function setStatus(kind, msg) {
+  statusEl.classList.remove('ok', 'bad');
+  if (kind) statusEl.classList.add(kind);
+  statusText.textContent = msg;
+}
+
+function truncate(s, n) { return s.length > n ? s.slice(0, n) + '…' : s; }
+
+async function verify() {
+  try {
+    const pngBlob = await qr.getRawData('png');
+    const bmp = await createImageBitmap(pngBlob);
+    const c = document.createElement('canvas');
+    c.width = bmp.width; c.height = bmp.height;
+    const ctx = c.getContext('2d');
+    ctx.drawImage(bmp, 0, 0);
+    const { data, width, height } = ctx.getImageData(0, 0, c.width, c.height);
+    const res = jsQR(data, width, height);
+    const expected = inputs.text.value || ' ';
+    if (res && res.data === expected) {
+      setStatus('ok', `Verified · Scans as "${truncate(res.data, 54)}"`);
+    } else if (res) {
+      setStatus('bad', `Rejected · Decoded "${truncate(res.data, 50)}"`);
+    } else {
+      setStatus('bad', 'Rejected · Raise error correction, simplify shape, or increase contrast');
+    }
+  } catch (e) {
+    setStatus('bad', 'Verification error: ' + e.message);
+  }
+}
+
+async function render() {
+  clearNode(qrMount);
+  qr = new QRCodeStyling(buildOptions());
+  qr.append(qrMount);
+  updatePlate2D();
+  setStatus('', 'Verifying…');
+  await verify();
+  scheduleThreeUpdate();
+}
+
+function updatePlate2D() {
+  const g = computePlateGeometry();
+  const pxPerMm = QR_RASTER_PX / g.qrMm;
+
+  // Readouts — title-block style
+  let body;
+  if (g.shape === 'none') {
+    body = '<span class="k">Computed Plate</span>None — QR only';
+  } else if (g.shape === 'circle') {
+    body = `<span class="k">Computed Plate</span>⌀ ${g.plateMm.toFixed(1)} mm<br>QR ${g.qrMm} mm + margin ${g.margin} mm × 2`;
+  } else {
+    body = `<span class="k">Computed Plate</span>${g.plateMm.toFixed(1)} × ${g.plateMm.toFixed(1)} mm<br>QR ${g.qrMm} mm + margin ${g.margin} mm × 2`;
+  }
+  labels.plateSizeReadout.innerHTML = body;
+
+  // Plan view callout
+  if (g.shape === 'none') planCallout.textContent = `QR ${g.qrMm}mm`;
+  else if (g.shape === 'circle') planCallout.textContent = `⌀ ${g.plateMm.toFixed(0)}mm · QR ${g.qrMm}mm`;
+  else planCallout.textContent = `${g.plateMm.toFixed(0)}×${g.plateMm.toFixed(0)}mm · QR ${g.qrMm}mm`;
+
+  labels.plateRadiusClamp.textContent =
+    (g.shape === 'square' && g.effectiveR < g.requestedR) ? `→ clamped ${g.effectiveR.toFixed(1)}mm` : '';
+  inputs.plateRadius.disabled = (g.shape !== 'square');
+
+  // Color swatches reflected in chip UI
+  const plateHex = inputs.plateColor.value.toUpperCase();
+  const moduleHex = inputs.moduleColor.value.toUpperCase();
+  labels.plateFill.style.background = plateHex;
+  labels.moduleFill.style.background = moduleHex;
+  labels.plateHex.textContent = plateHex;
+  labels.moduleHex.textContent = moduleHex;
+
+  // Plate visual
+  if (g.shape === 'none') {
+    plateEl.style.display = 'none';
+  } else {
+    plateEl.style.display = 'block';
+    const platePx = g.plateMm * pxPerMm;
+    plateEl.style.width = platePx + 'px';
+    plateEl.style.height = platePx + 'px';
+    plateEl.style.background = inputs.plateColor.value;
+    plateEl.style.borderRadius = (g.shape === 'circle') ? '50%' : (g.effectiveR * pxPerMm) + 'px';
+  }
+
+  // Auto-fit inside the stage
+  const contentPx = (g.shape === 'none') ? QR_RASTER_PX : Math.max(QR_RASTER_PX, g.plateMm * pxPerMm);
+  const stageAvail = Math.max(240, qrStage.clientWidth - 20);
+  const scale = Math.min(1, stageAvail / contentPx);
+  qrStageInner.style.transform = `scale(${scale})`;
+}
+
+// ---------- three.js viewer ----------
+const threeBox = $('threeBox');
+let renderer, scene, camera, controls, qrGroup;
+// The camera is framed once on the first mesh build, then left alone so
+// the user's orbit/zoom state survives slider changes. Double-click the
+// viewer to reframe on demand.
+let cameraFramed = false;
+
+function initThree() {
+  const w = threeBox.clientWidth || 400;
+  const h = threeBox.clientHeight || 300;
+  renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(2, window.devicePixelRatio));
+  renderer.setSize(w, h);
+  renderer.setClearColor(0xf5f0e2, 1); // paper tone
+  threeBox.appendChild(renderer.domElement);
+
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0xf5f0e2);
+
+  camera = new THREE.PerspectiveCamera(40, w / h, 0.1, 5000);
+
+  controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+
+  scene.add(new THREE.AmbientLight(0xffffff, 0.65));
+  const key = new THREE.DirectionalLight(0xffffff, 1.0);
+  key.position.set(120, 200, 160);
+  scene.add(key);
+  const fill = new THREE.DirectionalLight(0xdce6ff, 0.35);
+  fill.position.set(-180, 120, -60);
+  scene.add(fill);
+  const rim = new THREE.DirectionalLight(0xffd9a8, 0.28);
+  rim.position.set(0, -200, 100);
+  scene.add(rim);
+
+  window.addEventListener('resize', () => { onResize(); updatePlate2D(); });
+
+  // Double-click the viewer to re-fit the camera to the current geometry.
+  renderer.domElement.addEventListener('dblclick', async () => {
+    const built = await buildGeometry();
+    if (built) frameCamera(built);
+  });
+
+  animate();
+}
+
+function onResize() {
+  const w = threeBox.clientWidth, h = threeBox.clientHeight;
+  if (!w || !h) return;
+  renderer.setSize(w, h);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+}
+
+function animate() {
+  requestAnimationFrame(animate);
+  if (controls) controls.update();
+  if (renderer) renderer.render(scene, camera);
+}
+
+function blobToText(blob) {
+  if (typeof blob === 'string') return Promise.resolve(blob);
+  return blob.text();
+}
+
+function roundedRectShape(w, h, r) {
+  r = Math.max(0, Math.min(r, w / 2, h / 2));
+  const s = new THREE.Shape();
+  const x = -w / 2, y = -h / 2;
+  s.moveTo(x + r, y);
+  s.lineTo(x + w - r, y);
+  s.quadraticCurveTo(x + w, y, x + w, y + r);
+  s.lineTo(x + w, y + h - r);
+  s.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  s.lineTo(x + r, y + h);
+  s.quadraticCurveTo(x, y + h, x, y + h - r);
+  s.lineTo(x, y + r);
+  s.quadraticCurveTo(x, y, x + r, y);
+  return s;
+}
+
+async function buildGeometry() {
+  const g = computePlateGeometry();
+  const depth = Number(inputs.depth.value);
+  const backingDepth = Number(inputs.backingDepth.value);
+  const moduleColor = new THREE.Color(inputs.moduleColor.value);
+  const plateColor = new THREE.Color(inputs.plateColor.value);
+
+  const svgStr = await qr.getRawData('svg').then(blobToText);
+
+  // IMPORTANT: qr-code-styling draws the modules and corners using a
+  // clipPath-plus-rect technique — the actual dot shapes live inside
+  // <clipPath> elements in <defs>, and the visible rects in the main SVG
+  // body are full-canvas rectangles clipped to those shapes (so that
+  // gradient fills work). three.js's SVGLoader doesn't follow `clip-path`
+  // attributes, so if you hand it the raw SVG it sees a pile of
+  // full-canvas rectangles and you extrude a solid slab.
+  //
+  // Fix: parse the SVG ourselves, pull every shape child out of every
+  // <clipPath>, rebuild a flat SVG containing only those shapes, and feed
+  // THAT to SVGLoader. No more clipPath indirection, no background rect
+  // to filter, every element in the new SVG is a real QR shape.
+  const NS = 'http://www.w3.org/2000/svg';
+  const doc = new DOMParser().parseFromString(svgStr, 'image/svg+xml');
+  const rootEl = doc.documentElement;
+  const viewBox = rootEl.getAttribute('viewBox') || `0 0 ${QR_RASTER_PX} ${QR_RASTER_PX}`;
+
+  const flatSvg = doc.createElementNS(NS, 'svg');
+  flatSvg.setAttribute('xmlns', NS);
+  flatSvg.setAttribute('viewBox', viewBox);
+
+  const clipPaths = doc.getElementsByTagName('clipPath');
+  for (const cp of Array.from(clipPaths)) {
+    for (const child of Array.from(cp.children)) {
+      flatSvg.appendChild(child.cloneNode(true));
+    }
+  }
+
+  // If for some reason there were no clipPaths (e.g., library version
+  // change), fall back to the original SVG so the user still gets *some*
+  // geometry — better to over-render than to render nothing.
+  const sourceSvg = flatSvg.children.length > 0
+    ? new XMLSerializer().serializeToString(flatSvg)
+    : svgStr;
+
+  const parsed = new SVGLoader().parse(sourceSvg);
+
+  const shapes = [];
+  for (const path of parsed.paths) {
+    for (const s of SVGLoader.createShapes(path)) shapes.push(s);
+  }
+  if (!shapes.length) return null;
+
+  const geoms = shapes.map(s => new THREE.ExtrudeGeometry(s, { depth, bevelEnabled: false, curveSegments: 12 }));
+  const featureGeom = mergeGeometries(geoms, false);
+  geoms.forEach(x => x.dispose());
+  if (!featureGeom) return null;
+
+  featureGeom.scale(1, -1, 1);
+  featureGeom.computeBoundingBox();
+  let bb = featureGeom.boundingBox;
+  const svgW = bb.max.x - bb.min.x;
+  const xyScale = g.qrMm / svgW;
+  featureGeom.scale(xyScale, xyScale, 1);
+  featureGeom.computeBoundingBox();
+  bb = featureGeom.boundingBox;
+  featureGeom.translate(-(bb.min.x + bb.max.x) / 2, -(bb.min.y + bb.max.y) / 2, 0);
+  featureGeom.computeVertexNormals();
+
+  const featureMat = new THREE.MeshStandardMaterial({ color: moduleColor, metalness: 0.05, roughness: 0.5 });
+  const featureMesh = new THREE.Mesh(featureGeom, featureMat);
+
+  let plateMesh = null;
+  if (g.shape !== 'none' && backingDepth > 0 && g.plateMm > 0) {
+    console.assert(g.plateMm + 1e-6 >= g.qrMm, 'plate smaller than QR');
+    let plateGeom;
+    if (g.shape === 'square') {
+      const shape = roundedRectShape(g.plateMm, g.plateMm, g.effectiveR);
+      plateGeom = new THREE.ExtrudeGeometry(shape, { depth: backingDepth, bevelEnabled: false, curveSegments: 24 });
+      plateGeom.translate(0, 0, -backingDepth);
+    } else {
+      plateGeom = new THREE.CylinderGeometry(g.plateMm / 2, g.plateMm / 2, backingDepth, 96);
+      plateGeom.rotateX(Math.PI / 2);
+      plateGeom.translate(0, 0, -backingDepth / 2);
+    }
+    plateGeom.computeVertexNormals();
+    const plateMat = new THREE.MeshStandardMaterial({ color: plateColor, metalness: 0.05, roughness: 0.75 });
+    plateMesh = new THREE.Mesh(plateGeom, plateMat);
+  }
+
+  const group = new THREE.Group();
+  group.add(featureMesh);
+  if (plateMesh) group.add(plateMesh);
+  return { group, featureMesh, plateMesh, plateMm: g.plateMm, qrMm: g.qrMm };
+}
+
+let threeUpdateTimer = null;
+function scheduleThreeUpdate() {
+  clearTimeout(threeUpdateTimer);
+  threeUpdateTimer = setTimeout(updateThree, 80);
+}
+
+async function updateThree() {
+  if (!renderer || !qr) return;
+  const built = await buildGeometry();
+  if (qrGroup) {
+    scene.remove(qrGroup);
+    qrGroup.traverse(o => {
+      if (o.geometry) o.geometry.dispose();
+      if (o.material) o.material.dispose();
+    });
+    qrGroup = null;
+  }
+  if (!built) return;
+  qrGroup = built.group;
+  scene.add(qrGroup);
+
+  if (!cameraFramed) {
+    frameCamera(built);
+    cameraFramed = true;
+  }
+}
+
+function frameCamera(built) {
+  const outer = Math.max(built.qrMm, built.plateMm || 0) || 50;
+  const dist = outer * 1.7;
+  camera.position.set(outer * 0.25, outer * 0.9, dist);
+  camera.up.set(0, 1, 0);
+  camera.lookAt(0, 0, 0);
+  controls.target.set(0, 0, 0);
+  controls.update();
+}
+
+// ---------- downloads ----------
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function exportMeshToStl(mesh, filename) {
+  const stl = new STLExporter().parse(mesh, { binary: true });
+  downloadBlob(new Blob([stl], { type: 'model/stl' }), filename);
+}
+
+// ---------- 3MF export (multi-body, per-body color) ----------
+// Extract a flat {verts, tris} from a three.js BufferGeometry, applying the
+// mesh's world matrix so the 3MF lives in the same coordinate frame the
+// viewer shows. 3MF stores vertices + triangle indices, so this handles
+// both indexed and non-indexed geometries.
+function geomToMeshData(mesh) {
+  const geom = mesh.geometry;
+  const pos = geom.getAttribute('position');
+  mesh.updateMatrixWorld(true);
+  const m = mesh.matrixWorld;
+  const v = new THREE.Vector3();
+  const verts = new Array(pos.count);
+  for (let i = 0; i < pos.count; i++) {
+    v.fromBufferAttribute(pos, i).applyMatrix4(m);
+    verts[i] = [v.x, v.y, v.z];
+  }
+  const tris = [];
+  if (geom.index) {
+    const idx = geom.index.array;
+    for (let i = 0; i < idx.length; i += 3) tris.push([idx[i], idx[i + 1], idx[i + 2]]);
+  } else {
+    for (let i = 0; i < pos.count; i += 3) tris.push([i, i + 1, i + 2]);
+  }
+  return { verts, tris };
+}
+
+function xmlEscape(s) {
+  return String(s).replace(/[<>&"']/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&apos;' }[c]));
+}
+
+// Build a 3MF archive containing the given objects. Each object becomes its
+// own <object> at the same world origin, and a <basematerials> resource
+// pairs each one with a color so modern slicers auto-assign filaments.
+async function buildThreeMf(objects) {
+  // objects: [{ name, color (#RRGGBB), verts, tris }]
+  const materialsXml = objects.map((o) =>
+    `      <base name="${xmlEscape(o.name)}" displaycolor="${o.color.toUpperCase()}FF"/>`
+  ).join('\n');
+
+  const objectXml = objects.map((o, i) => {
+    const id = i + 2; // 1 is reserved for the materials resource
+    const verticesXml = o.verts.map(
+      (v) => `        <vertex x="${v[0].toFixed(4)}" y="${v[1].toFixed(4)}" z="${v[2].toFixed(4)}"/>`
+    ).join('\n');
+    const trianglesXml = o.tris.map(
+      (t) => `        <triangle v1="${t[0]}" v2="${t[1]}" v3="${t[2]}"/>`
+    ).join('\n');
+    return `    <object id="${id}" type="model" pid="1" pindex="${i}" name="${xmlEscape(o.name)}">
+      <mesh>
+        <vertices>
+${verticesXml}
+        </vertices>
+        <triangles>
+${trianglesXml}
+        </triangles>
+      </mesh>
+    </object>`;
+  }).join('\n');
+
+  const buildItems = objects.map((_, i) => `    <item objectid="${i + 2}"/>`).join('\n');
+
+  const modelXml = `<?xml version="1.0" encoding="UTF-8"?>
+<model unit="millimeter" xml:lang="en-US" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02">
+  <resources>
+    <basematerials id="1">
+${materialsXml}
+    </basematerials>
+${objectXml}
+  </resources>
+  <build>
+${buildItems}
+  </build>
+</model>`;
+
+  const contentTypes = `<?xml version="1.0" encoding="UTF-8"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="model" ContentType="application/vnd.ms-package.3dmanufacturing-3dmodel+xml"/>
+</Types>`;
+
+  const rels = `<?xml version="1.0" encoding="UTF-8"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Target="/3D/3dmodel.model" Id="rel-1" Type="http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel"/>
+</Relationships>`;
+
+  const zip = new JSZip();
+  zip.file('[Content_Types].xml', contentTypes);
+  zip.folder('_rels').file('.rels', rels);
+  zip.folder('3D').file('3dmodel.model', modelXml);
+  return await zip.generateAsync({ type: 'blob', mimeType: 'model/3mf' });
+}
+
+$('dlSvg').addEventListener('click', () => qr.download({ name: 'qr', extension: 'svg' }));
+$('dlPng').addEventListener('click', () => qr.download({ name: 'qr', extension: 'png' }));
+$('dlStl').addEventListener('click', async () => {
+  const built = await buildGeometry();
+  if (!built) { setStatus('bad', 'Nothing to export'); return; }
+  exportMeshToStl(built.group, 'qr-combined.stl');
+});
+$('dlStlQr').addEventListener('click', async () => {
+  const built = await buildGeometry();
+  if (!built) { setStatus('bad', 'Nothing to export'); return; }
+  exportMeshToStl(built.featureMesh, 'qr-modules.stl');
+});
+$('dlStlPlate').addEventListener('click', async () => {
+  const built = await buildGeometry();
+  if (!built || !built.plateMesh) { setStatus('bad', 'No plate to export'); return; }
+  exportMeshToStl(built.plateMesh, 'qr-plate.stl');
+});
+$('dl3mf').addEventListener('click', async () => {
+  const built = await buildGeometry();
+  if (!built) { setStatus('bad', 'Nothing to export'); return; }
+  const objects = [];
+  if (built.plateMesh) {
+    const { verts, tris } = geomToMeshData(built.plateMesh);
+    objects.push({ name: 'Plate', color: inputs.plateColor.value, verts, tris });
+  }
+  const { verts, tris } = geomToMeshData(built.featureMesh);
+  objects.push({ name: 'Modules', color: inputs.moduleColor.value, verts, tris });
+  try {
+    const blob = await buildThreeMf(objects);
+    downloadBlob(blob, 'qr-studio.3mf');
+  } catch (e) {
+    setStatus('bad', '3MF export failed: ' + e.message);
+  }
+});
+
+// ---------- wiring ----------
+function syncLabels() {
+  // Mirror each slider's current value into its paired number input, but
+  // skip the field the user is currently editing — otherwise live slider
+  // updates (from other controls or the scheduleReskin loop) would clobber
+  // in-progress typing.
+  for (const [key, numEl] of Object.entries(numInputs)) {
+    if (document.activeElement === numEl) continue;
+    const p = numPrecision[key];
+    numEl.value = Number(inputs[key].value).toFixed(p);
+  }
+  // Disable the corner-radius number entry when radius isn't applicable.
+  numInputs.plateRadius.disabled = (inputs.plateShape.value !== 'square');
+}
+
+const REGEN_KEYS = ['text', 'ecLevel', 'dotsType', 'cornersSquareType', 'cornersDotType', 'moduleColor', 'plateColor'];
+const RESKIN_KEYS = ['qrSize', 'depth', 'plateShape', 'plateMargin', 'plateRadius', 'backingDepth'];
+
+let debounceTimer = null;
+function scheduleRender() {
+  syncLabels();
+  saveState();
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(render, 120);
+}
+function scheduleReskin() {
+  syncLabels();
+  saveState();
+  updatePlate2D();
+  scheduleThreeUpdate();
+}
+
+REGEN_KEYS.forEach(k => { inputs[k].addEventListener('input', scheduleRender); });
+RESKIN_KEYS.forEach(k => {
+  const el = inputs[k];
+  const ev = (el.tagName === 'SELECT') ? 'change' : 'input';
+  el.addEventListener(ev, scheduleReskin);
+});
+
+// Number inputs commit on `change` (blur / enter / arrow clicks) so typing
+// "4.5" doesn't snap after every keystroke. The committed value is clamped
+// into the slider's min/max/step and then dispatched through the slider's
+// normal `input` event so the existing reskin pipeline fires.
+Object.entries(numInputs).forEach(([key, numEl]) => {
+  const range = inputs[key];
+  function commit() {
+    const min = Number(range.min), max = Number(range.max);
+    let v = Number(numEl.value);
+    if (!Number.isFinite(v)) {
+      numEl.value = Number(range.value).toFixed(numPrecision[key]);
+      return;
+    }
+    v = Math.min(max, Math.max(min, v));
+    range.value = String(v);
+    numEl.value = Number(range.value).toFixed(numPrecision[key]);
+    range.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+  numEl.addEventListener('change', commit);
+  // Enter commits without losing focus.
+  numEl.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { numEl.blur(); }
+  });
+});
+
+// Boot
+loadState();
+syncLabels();
+initThree();
+render();
+</script>
+</body>
+</html>
