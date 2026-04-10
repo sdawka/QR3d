@@ -499,7 +499,7 @@
     border: 2.5px solid var(--ink);
     color: var(--ink);
     background: var(--paper-lt);
-    transform: rotate(-1.1deg);
+    transform: rotate(-0.3deg);
     letter-spacing: 0.01em;
     position: relative;
     box-shadow:
@@ -521,20 +521,20 @@
     color: var(--ok);
     border-color: var(--ok);
     box-shadow: 0 0 0 1px var(--paper-lt), 0 0 0 4px var(--ok);
-    transform: rotate(-1.6deg);
+    transform: rotate(-0.3deg);
   }
   .stamp.bad {
     color: var(--hot-2);
     border-color: var(--hot-2);
     box-shadow: 0 0 0 1px var(--paper-lt), 0 0 0 4px var(--hot-2);
-    transform: rotate(-2.2deg);
+    transform: rotate(-0.5deg);
   }
   /* hide the old pill inner dot if present */
   .stamp .dot { display: none; }
 
   /* ---------- PLAN & ISO VIEWS ---------- */
   figure.plate-view {
-    margin: 0;
+    margin: 12px 0 0;
     position: relative;
     border: 1px solid var(--ink);
     background: var(--paper-lt);
@@ -543,9 +543,8 @@
   }
   figure.plate-view figcaption {
     position: absolute;
-    top: 0; left: 24px;
-    transform: translateY(-50%);
-    background: var(--paper);
+    top: 8px; left: 16px;
+    background: var(--paper-dk);
     padding: 2px 12px;
     font-family: 'IBM Plex Mono', monospace;
     font-size: 9px;
@@ -557,9 +556,8 @@
   }
   figure.plate-view .callout {
     position: absolute;
-    right: 16px; top: 0;
-    transform: translateY(-50%);
-    background: var(--paper);
+    right: 16px; top: 8px;
+    background: var(--paper-dk);
     padding: 2px 10px;
     font-family: 'IBM Plex Mono', monospace;
     font-size: 9px;
@@ -621,12 +619,11 @@
   }
 
   /* Iso view */
-  figure.iso-view { margin: 0; position: relative; border: 1px solid var(--ink); background: var(--paper-lt); overflow: hidden; min-height: 280px; }
+  figure.iso-view { margin: 12px 0 0; position: relative; border: 1px solid var(--ink); background: var(--paper-lt); overflow: hidden; min-height: 280px; }
   figure.iso-view figcaption {
     position: absolute;
-    top: 0; left: 24px;
-    transform: translateY(-50%);
-    background: var(--paper);
+    top: 8px; left: 16px;
+    background: var(--paper-dk);
     padding: 2px 12px;
     font-family: 'IBM Plex Mono', monospace;
     font-size: 9px;
