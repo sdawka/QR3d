@@ -764,9 +764,9 @@
         <div class="field">
           <label for="cornersSquareType">Finder Frame</label>
           <select id="cornersSquareType">
-            <option value="square">Square</option>
+            <option value="square" selected>Square</option>
             <option value="dot">Dot</option>
-            <option value="extra-rounded" selected>Extra Rounded</option>
+            <option value="extra-rounded">Extra Rounded</option>
           </select>
         </div>
         <div class="field">
@@ -1522,10 +1522,43 @@ async function buildGeometry() {
     plateMesh = new THREE.Mesh(plateGeom, plateMat);
   }
 
+  // Logo mesh — textured plane sitting on top of modules
+  let logoMesh = null;
+  if (logoDataUrl) {
+    // Load image to get natural aspect ratio
+    const img = await new Promise((resolve) => {
+      const i = new Image();
+      i.onload = () => resolve(i);
+      i.src = logoDataUrl;
+    });
+    const aspect = img.naturalWidth / img.naturalHeight;
+
+    const logoSizePct = Number(inputs.logoSize.value) / 100;
+    // Match 2D margin (4px per side + internal padding)
+    const marginMm = 16 * g.qrMm / 360;
+    const logoMaxMm = g.qrMm * logoSizePct - marginMm;
+    // Fit within logoMaxMm while preserving aspect ratio
+    const logoW = aspect >= 1 ? logoMaxMm : logoMaxMm * aspect;
+    const logoH = aspect >= 1 ? logoMaxMm / aspect : logoMaxMm;
+    const logoGeom = new THREE.PlaneGeometry(logoW, logoH);
+    // Position above module tops
+    logoGeom.translate(0, 0, depth + 0.15);
+
+    const logoTex = new THREE.TextureLoader().load(logoDataUrl);
+    logoTex.colorSpace = THREE.SRGBColorSpace;
+    const logoMat = new THREE.MeshBasicMaterial({
+      map: logoTex,
+      transparent: true,
+      side: THREE.DoubleSide,
+    });
+    logoMesh = new THREE.Mesh(logoGeom, logoMat);
+  }
+
   const group = new THREE.Group();
   group.add(featureMesh);
   if (plateMesh) group.add(plateMesh);
-  return { group, featureMesh, plateMesh, plateMm: g.plateMm, qrMm: g.qrMm };
+  if (logoMesh) group.add(logoMesh);
+  return { group, featureMesh, plateMesh, logoMesh, plateMm: g.plateMm, qrMm: g.qrMm };
 }
 
 let threeUpdateTimer = null;
