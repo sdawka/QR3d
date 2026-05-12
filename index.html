@@ -684,10 +684,12 @@
   "imports": {
     "three": "https://esm.sh/three@0.160.0",
     "three/addons/": "https://esm.sh/three@0.160.0/examples/jsm/",
+    "three-bvh-csg": "https://esm.sh/three-bvh-csg@0.0.16?deps=three@0.160.0",
     "qr-code-styling": "https://esm.sh/qr-code-styling@1.6.0-rc.1",
     "jsqr": "https://esm.sh/jsqr@1.4.0",
     "jszip": "https://esm.sh/jszip@3.10.1",
-    "qrcode-generator": "https://esm.sh/qrcode-generator@1.4.4"
+    "qrcode-generator": "https://esm.sh/qrcode-generator@1.4.4",
+    "imagetracerjs": "https://esm.sh/imagetracerjs@1.2.6"
   }
 }
 </script>
@@ -940,8 +942,20 @@ import { SVGLoader } from 'three/addons/loaders/SVGLoader.js';
 import { STLExporter } from 'three/addons/exporters/STLExporter.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+// CSG loaded dynamically to avoid blocking page load if it fails
+let Evaluator, Brush, ADDITION;
+const csgReady = import('three-bvh-csg').then(m => {
+  Evaluator = m.Evaluator;
+  Brush = m.Brush;
+  ADDITION = m.ADDITION;
+  return true;
+}).catch(e => {
+  console.warn('CSG library failed to load:', e);
+  return false;
+});
 import JSZip from 'jszip';
 import qrcode from 'qrcode-generator';
+import ImageTracer from 'imagetracerjs';
 
 const $ = (id) => document.getElementById(id);
 const qrStage = $('qrStage');
@@ -1470,9 +1484,53 @@ async function buildGeometry() {
   }
   if (!shapes.length) return null;
 
-  const geoms = shapes.map(s => new THREE.ExtrudeGeometry(s, { depth, bevelEnabled: false, curveSegments: 12 }));
-  const featureGeom = mergeGeometries(geoms, false);
-  geoms.forEach(x => x.dispose());
+  // Try CSG union for manifold mesh, fall back to merge if CSG unavailable or fails
+  const extrudeSettings = { depth, bevelEnabled: false, curveSegments: 12 };
+  let featureGeom;
+  const useCSG = await csgReady && Evaluator && Brush && ADDITION !== undefined;
+
+  if (useCSG) {
+    try {
+      const csgEvaluator = new Evaluator();
+      csgEvaluator.useGroups = false;
+
+      let brushes = shapes.map(shape => {
+        const geom = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+        const brush = new Brush(geom);
+        brush.updateMatrixWorld();
+        return brush;
+      });
+
+      // Tree reduction: O(n log n) instead of O(n²)
+      while (brushes.length > 1) {
+        const next = [];
+        for (let i = 0; i < brushes.length; i += 2) {
+          if (i + 1 < brushes.length) {
+            const merged = csgEvaluator.evaluate(brushes[i], brushes[i + 1], ADDITION);
+            brushes[i].geometry.dispose();
+            brushes[i + 1].geometry.dispose();
+            next.push(merged);
+          } else {
+            next.push(brushes[i]);
+          }
+        }
+        brushes = next;
+      }
+
+      if (!brushes.length) throw new Error('No brushes');
+      featureGeom = brushes[0].geometry;
+    } catch (e) {
+      console.warn('CSG union failed, falling back to merge:', e);
+      useCSG && (featureGeom = null);
+    }
+  }
+
+  if (!featureGeom) {
+    const geoms = shapes.map(s => new THREE.ExtrudeGeometry(s, extrudeSettings));
+    featureGeom = mergeGeometries(geoms, false);
+    geoms.forEach(x => x.dispose());
+  }
+
   if (!featureGeom) return null;
 
   featureGeom.scale(1, -1, 1);
@@ -1522,36 +1580,144 @@ async function buildGeometry() {
     plateMesh = new THREE.Mesh(plateGeom, plateMat);
   }
 
-  // Logo mesh — textured plane sitting on top of modules
+  // Logo mesh — use SVG directly if available, otherwise trace raster image
   let logoMesh = null;
   if (logoDataUrl) {
-    // Load image to get natural aspect ratio
+    const logoSizePct = Number(inputs.logoSize.value) / 100;
+    const marginMm = 16 * g.qrMm / 360;
+    const logoMaxMm = g.qrMm * logoSizePct - marginMm;
+
+    const logoShapes = [];
+    const isSvg = logoDataUrl.startsWith('data:image/svg');
+
+    if (isSvg) {
+      // SVG: parse directly — perfect vector quality
+      let svgText;
+      const [header, data] = logoDataUrl.split(',');
+      if (header.includes('base64')) {
+        svgText = atob(data);
+      } else {
+        svgText = decodeURIComponent(data);
+      }
+      const parsed = new SVGLoader().parse(svgText);
+
+      for (const path of parsed.paths) {
+        const fill = path.userData?.style?.fill?.toLowerCase() || '';
+        // Skip white/none/transparent fills, keep everything else (including no fill = black)
+        if (fill === 'none' || fill === '#ffffff' || fill === '#fff' || fill === 'white' || fill === 'transparent') continue;
+        for (const shape of SVGLoader.createShapes(path)) {
+          logoShapes.push(shape);
+        }
+      }
+    } else {
+      // Raster: trace to vector paths
+      const img = await new Promise((resolve, reject) => {
+        const i = new Image();
+        i.onload = () => resolve(i);
+        i.onerror = reject;
+        i.src = logoDataUrl;
+      });
+
+      const traceScale = 4;
+      const aspect = img.naturalWidth / img.naturalHeight;
+      const logoWMm = aspect >= 1 ? logoMaxMm : logoMaxMm * aspect;
+      const logoHMm = aspect >= 1 ? logoMaxMm / aspect : logoMaxMm;
+      const canvasW = Math.round(logoWMm * traceScale);
+      const canvasH = Math.round(logoHMm * traceScale);
+
+      const canvas = document.createElement('canvas');
+      canvas.width = canvasW;
+      canvas.height = canvasH;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvasW, canvasH);
+      ctx.drawImage(img, 0, 0, canvasW, canvasH);
+      const imageData = ctx.getImageData(0, 0, canvasW, canvasH);
+
+      const svgStr = ImageTracer.imagedataToSVG(imageData, {
+        colorsampling: 0,
+        numberofcolors: 2,
+        mincolorratio: 0,
+        colorquantcycles: 1,
+        ltres: 0.5,
+        qtres: 0.5,
+        pathomit: 4,
+        rightangleenhance: false,
+        blurradius: 0,
+        blurdelta: 20,
+      });
+
+      // Filter to dark paths only
+      const svgDoc = new DOMParser().parseFromString(svgStr, 'image/svg+xml');
+      const darkSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      darkSvg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+      darkSvg.setAttribute('viewBox', svgDoc.documentElement.getAttribute('viewBox') || `0 0 ${canvasW} ${canvasH}`);
+
+      for (const p of svgDoc.querySelectorAll('path')) {
+        const fill = p.getAttribute('fill') || '';
+        let r = 255, gg = 255, b = 255;
+        const rgbMatch = fill.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+        const hexMatch = fill.match(/^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i);
+        if (rgbMatch) {
+          r = parseInt(rgbMatch[1]); gg = parseInt(rgbMatch[2]); b = parseInt(rgbMatch[3]);
+        } else if (hexMatch) {
+          r = parseInt(hexMatch[1], 16); gg = parseInt(hexMatch[2], 16); b = parseInt(hexMatch[3], 16);
+        }
+        if (0.299 * r + 0.587 * gg + 0.114 * b < 128) {
+          darkSvg.appendChild(p.cloneNode(true));
+        }
+      }
+
+      if (darkSvg.children.length > 0) {
+        const parsed = new SVGLoader().parse(new XMLSerializer().serializeToString(darkSvg));
+        for (const path of parsed.paths) {
+          for (const shape of SVGLoader.createShapes(path)) {
+            logoShapes.push(shape);
+          }
+        }
+      }
+    }
+
+    // Get logo dimensions for scaling
     const img = await new Promise((resolve) => {
       const i = new Image();
       i.onload = () => resolve(i);
       i.src = logoDataUrl;
     });
     const aspect = img.naturalWidth / img.naturalHeight;
+    const logoWMm = aspect >= 1 ? logoMaxMm : logoMaxMm * aspect;
+    const logoHMm = aspect >= 1 ? logoMaxMm / aspect : logoMaxMm;
 
-    const logoSizePct = Number(inputs.logoSize.value) / 100;
-    // Match 2D margin (4px per side + internal padding)
-    const marginMm = 16 * g.qrMm / 360;
-    const logoMaxMm = g.qrMm * logoSizePct - marginMm;
-    // Fit within logoMaxMm while preserving aspect ratio
-    const logoW = aspect >= 1 ? logoMaxMm : logoMaxMm * aspect;
-    const logoH = aspect >= 1 ? logoMaxMm / aspect : logoMaxMm;
-    const logoGeom = new THREE.PlaneGeometry(logoW, logoH);
-    // Position above module tops
-    logoGeom.translate(0, 0, depth + 0.15);
+    if (logoShapes.length > 0) {
+      // Extrude logo shapes
+      const logoGeoms = logoShapes.map(s =>
+        new THREE.ExtrudeGeometry(s, { depth, bevelEnabled: false, curveSegments: 12 })
+      );
+      let logoGeom = mergeGeometries(logoGeoms, false);
+      logoGeoms.forEach(lg => lg.dispose());
 
-    const logoTex = new THREE.TextureLoader().load(logoDataUrl);
-    logoTex.colorSpace = THREE.SRGBColorSpace;
-    const logoMat = new THREE.MeshBasicMaterial({
-      map: logoTex,
-      transparent: true,
-      side: THREE.DoubleSide,
-    });
-    logoMesh = new THREE.Mesh(logoGeom, logoMat);
+      if (logoGeom) {
+        // Scale and position to match logo size in mm
+        logoGeom.scale(1, -1, 1); // flip Y
+        logoGeom.computeBoundingBox();
+        const lbb = logoGeom.boundingBox;
+        const svgW = lbb.max.x - lbb.min.x;
+        const svgH = lbb.max.y - lbb.min.y;
+        const scale = Math.min(logoWMm / svgW, logoHMm / svgH);
+        logoGeom.scale(scale, scale, 1);
+        logoGeom.computeBoundingBox();
+        const lbb2 = logoGeom.boundingBox;
+        logoGeom.translate(
+          -(lbb2.min.x + lbb2.max.x) / 2,
+          -(lbb2.min.y + lbb2.max.y) / 2,
+          0.05
+        );
+        logoGeom.computeVertexNormals();
+
+        const logoMat = new THREE.MeshLambertMaterial({ color: moduleColor, flatShading: true });
+        logoMesh = new THREE.Mesh(logoGeom, logoMat);
+      }
+    }
   }
 
   const group = new THREE.Group();
@@ -1724,14 +1890,35 @@ ${buildItems}
 $('dlSvg').addEventListener('click', () => qr.download({ name: 'qr', extension: 'svg' }));
 $('dlPng').addEventListener('click', () => qr.download({ name: 'qr', extension: 'png' }));
 $('dlStl').addEventListener('click', async () => {
+  setStatus('', 'Building combined mesh…');
+  await new Promise(r => setTimeout(r, 10)); // let UI update
   const built = await buildGeometry();
   if (!built) { setStatus('bad', 'Nothing to export'); return; }
-  exportMeshToStl(built.group, 'qr-combined.stl');
+
+  // Merge all geometry (plate + modules + logo) for combined export
+  const allGeoms = [];
+  if (built.plateMesh) allGeoms.push(built.plateMesh.geometry);
+  allGeoms.push(built.featureMesh.geometry);
+  if (built.logoMesh) allGeoms.push(built.logoMesh.geometry);
+
+  const mergedGeom = mergeGeometries(allGeoms, false);
+  const mergedMesh = new THREE.Mesh(mergedGeom);
+  exportMeshToStl(mergedMesh, 'qr-combined.stl');
+  mergedGeom.dispose();
+  setStatus('ok', 'Exported combined STL');
 });
 $('dlStlQr').addEventListener('click', async () => {
   const built = await buildGeometry();
   if (!built) { setStatus('bad', 'Nothing to export'); return; }
-  exportMeshToStl(built.featureMesh, 'qr-modules.stl');
+  // Include logo with modules (same material layer)
+  if (built.logoMesh) {
+    const group = new THREE.Group();
+    group.add(built.featureMesh.clone());
+    group.add(built.logoMesh.clone());
+    exportMeshToStl(group, 'qr-modules.stl');
+  } else {
+    exportMeshToStl(built.featureMesh, 'qr-modules.stl');
+  }
 });
 $('dlStlPlate').addEventListener('click', async () => {
   const built = await buildGeometry();
@@ -1746,11 +1933,17 @@ $('dl3mf').addEventListener('click', async () => {
     const { verts, tris } = geomToMeshData(built.plateMesh);
     objects.push({ name: 'Plate', color: inputs.plateColor.value, verts, tris });
   }
-  const { verts, tris } = geomToMeshData(built.featureMesh);
+  // Combine modules and logo geometries (same material layer)
+  const moduleGeoms = [built.featureMesh.geometry];
+  if (built.logoMesh) moduleGeoms.push(built.logoMesh.geometry);
+  const combinedModuleGeom = mergeGeometries(moduleGeoms, false);
+  const combinedModuleMesh = new THREE.Mesh(combinedModuleGeom);
+  const { verts, tris } = geomToMeshData(combinedModuleMesh);
   objects.push({ name: 'Modules', color: inputs.moduleColor.value, verts, tris });
   try {
     const blob = await buildThreeMf(objects);
     downloadBlob(blob, 'qr-studio.3mf');
+    combinedModuleGeom.dispose();
   } catch (e) {
     setStatus('bad', '3MF export failed: ' + e.message);
   }
